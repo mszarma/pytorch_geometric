@@ -14,7 +14,7 @@ from torch_geometric.loader.utils import (
     to_hetero_csc,
 )
 from torch_geometric.typing import InputNodes, NumNeighbors
-
+import psutil
 
 class NeighborSampler:
     def __init__(
@@ -267,6 +267,8 @@ class NeighborLoader(torch.utils.data.DataLoader):
         transform: Callable = None,
         is_sorted: bool = False,
         neighbor_sampler: Optional[NeighborSampler] = None,
+        use_cpu_worker_affinity=False,
+        cpu_worker_affinity_cores=None,
         **kwargs,
     ):
         # Remove for PyTorch Lightning:
@@ -299,8 +301,43 @@ class NeighborLoader(torch.utils.data.DataLoader):
                 share_memory=kwargs.get('num_workers', 0) > 0,
             )
 
+        worker_init_fn = None
+        if use_cpu_worker_affinity:
+            nw_work = kwargs.get('num_workers', 0)
+
+            if cpu_worker_affinity_cores is None:
+                cpu_worker_affinity_cores = []
+
+            if not isinstance(cpu_worker_affinity_cores, list):
+                raise Exception('ERROR: cpu_worker_affinity_cores should be a list of cores')
+            if not nw_work > 0:
+                raise Exception('ERROR: affinity should be used with --num_workers=X')
+            if len(cpu_worker_affinity_cores) not in [0, nw_work]:
+                raise Exception('ERROR: cpu_affinity incorrect '
+                                'settings for cores={} num_workers={}'
+                                .format(cpu_worker_affinity_cores, nw_work))
+
+            self.cpu_cores = (cpu_worker_affinity_cores
+                                if len(cpu_worker_affinity_cores)
+                                else range(0, nw_work))
+            worker_init_fn=self.worker_init_function
         super().__init__(input_nodes, collate_fn=self.neighbor_sampler,
-                         **kwargs)
+                         worker_init_fn=worker_init_fn, **kwargs)
+
+    def worker_init_function(self, worker_id):
+        """Worker init default function.
+                Parameters
+                ----------
+                worker_id : int
+                    Worker ID.
+        """
+        try:
+            psutil.Process().cpu_affinity([self.cpu_cores[worker_id]])
+            print('CPU-affinity worker {} has been assigned to core={}'
+                    .format(worker_id, self.cpu_cores[worker_id]))
+        except:
+            raise Exception('ERROR: cannot use affinity id={} cpu_cores={}'
+                            .format(worker_id, self.cpu_cores))
 
     def transform_fn(self, out: Any) -> Union[Data, HeteroData]:
         if isinstance(self.data, Data):
