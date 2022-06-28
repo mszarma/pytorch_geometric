@@ -4,8 +4,8 @@ import torch
 from ogb.nodeproppred import PygNodePropPredDataset
 from torch_geometric.datasets import OGB_MAG, Reddit
 import torch_geometric.transforms as T
-from .rgcn import RGCN
-from .rgat import RGAT
+from rgcn import RGCN
+from rgat import RGAT
 import copy
 
 models_dict = {
@@ -18,6 +18,8 @@ def get_dataset(name, root):
 
     if name == 'ogbn-mag':
         transform = T.ToUndirected(merge=True)
+        #dataset = PygNodePropPredDataset("ogbn-mag",
+    #                 root=osp.join(path, root, "mag"))
         dataset = OGB_MAG(root=osp.join(path, root, "mag"), transform=transform)
     elif name == 'ogbn-products':
         dataset = PygNodePropPredDataset("ogbn-products",
@@ -36,12 +38,15 @@ def get_model(name, params):
     if name in ['rgcn', 'rgat']:
         model = model_type(params['inputs_channels'],
                            params['hidden_channels'],
-                           params['dataset.num_classes'],
-                           params['num_relations'],
-                           params['num_layers'],)
+                           params['output_channels'],
+                   #        params['num_relations'],
+                           params['num_layers'],
+                           params['num_nodes_dict'],
+                           params['x_types'],
+                           params['edge_types'])
     else:
         model = model_type(params['inputs_channels'],
                            params['hidden_channels'],
-                           params['dataset.num_classes'],
+                           params['output_channels'],
                            params['num_layers'],)
     return model
