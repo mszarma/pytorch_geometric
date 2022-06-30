@@ -6,7 +6,7 @@ from torch.nn import Parameter, ModuleDict, ModuleList, Linear, ParameterDict
 from tqdm import tqdm
 import copy
 from torch_geometric.utils.hetero import group_hetero_graph
-#from torch_geometric.nn import RGCNConv # current implementation don't support newest API?
+from torch_geometric.nn import RGCNConv # current implementation don't support newest API?
 
 class RGCNConv(torch.nn.Module):
     def __init__(self, in_channels, out_channels, node_types, edge_types):
@@ -107,31 +107,3 @@ class RGCN(torch.nn.Module):
             # out = self(batch.x_dict, batch.edge_index_dict)['paper'][:batch_size]
             out = self(batch.x_dict, batch.adj_t_dict)['paper'][:batch_size]
             pred = out.argmax(dim=-1)
-
-
-# class RGCN(torch.nn.Module):
-#     def __init__(self, in_channels, hidden_channels, out_channels,
-#                  num_relations, num_layers):
-#         super().__init__()
-#         print(in_channels)
-#         self.conv1 = RGCNConv((-1,-1), hidden_channels, num_relations)
-#         self.convs = torch.nn.ModuleList()
-#         for i in range(num_layers - 1):
-#             self.convs.append(RGCNConv((-1, -1), hidden_channels, num_relations))
-#         self.lin = torch.nn.Linear(hidden_channels, out_channels)
-
-
-#     def forward(self, x, edge_index, edge_type):
-#         x = self.conv1(x, edge_index, edge_type).relu()
-#         for conv in self.convs:
-#             x = conv(x, edge_index, edge_type).relu()
-#         x = self.lin(x)
-#         return F.log_softmax(x, dim=-1)
-
-#     @torch.no_grad()
-#     def inference(self, loader, device, data=None):
-#         for batch in tqdm(loader):
-#             batch = batch.to(device, 'edge_index')
-#             batch_size = batch['paper'].batch_size
-#             out = self(batch.x_dict, batch.edge_index_dict)['paper'][:batch_size]
-#             pred = out.argmax(dim=-1)

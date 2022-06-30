@@ -5,12 +5,14 @@ from ogb.nodeproppred import PygNodePropPredDataset
 from torch_geometric.datasets import OGB_MAG, Reddit
 import torch_geometric.transforms as T
 from rgcn import RGCN
-from rgat import RGAT
+from rgat import GAT_HETERO
+from graphsage import SAGE_HETERO
 import copy
+#from torch_geometric.nn import to_hetero
 
 models_dict = {
-    'rgcn': RGCN,
-    'rgat': RGAT,
+    'rgcn': SAGE_HETERO,
+    'rgat': GAT_HETERO,
 }
 
 def get_dataset(name, root):
@@ -29,21 +31,26 @@ def get_dataset(name, root):
 
     return dataset
 
-def get_model(name, params):
+def get_model(name, params, device, metadata=None):
     try:
         model_type = models_dict[name]
     except KeyError:
         print(f"Model '{name}' not supported!")
 
     if name in ['rgcn', 'rgat']:
-        model = model_type(params['inputs_channels'],
-                           params['hidden_channels'],
+        model = model_type(params['hidden_channels'],
                            params['output_channels'],
-                   #        params['num_relations'],
-                           params['num_layers'],
-                           params['num_nodes_dict'],
-                           params['x_types'],
-                           params['edge_types'])
+                           params['num_layers'],)
+        model.create_hetero(device, metadata)
+        print(model)
+    # if name in ['rgcn', 'rgat']:
+    #     model = model_type(params['inputs_channels'],
+    #                        params['hidden_channels'],
+    #                        params['output_channels'],
+    #                        params['num_layers'],
+    #                        params['num_nodes_dict'],
+    #                        params['x_types'],
+    #                        params['edge_types'])
     else:
         model = model_type(params['inputs_channels'],
                            params['hidden_channels'],
