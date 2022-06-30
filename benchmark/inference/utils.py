@@ -1,18 +1,25 @@
 import os.path as osp
 
+
 import torch
 from ogb.nodeproppred import PygNodePropPredDataset
 from torch_geometric.datasets import OGB_MAG, Reddit
 import torch_geometric.transforms as T
-from rgcn import RGCN
-from rgat import GAT_HETERO
-from graphsage import SAGE_HETERO
+from inference.rgcn import RGCN
+from inference.rgat import GAT_HETERO
+from inference.graphsage import SAGE_HETERO
+from inference.pna_net import PNANet
+from torch_geometric.utils import degree
+from inference.edgeConv_net import EdgeConvNet
+
 import copy
 #from torch_geometric.nn import to_hetero
 
 models_dict = {
     'rgcn': SAGE_HETERO,
     'rgat': GAT_HETERO,
+    'pna_conv': PNANet,
+    'edge_conv': EdgeConvNet,
 }
 
 def get_dataset(name, root):
@@ -42,18 +49,30 @@ def get_model(name, params, device, metadata=None):
                            params['output_channels'],
                            params['num_layers'],)
         model.create_hetero(device, metadata)
-        print(model)
-    # if name in ['rgcn', 'rgat']:
-    #     model = model_type(params['inputs_channels'],
-    #                        params['hidden_channels'],
-    #                        params['output_channels'],
-    #                        params['num_layers'],
-    #                        params['num_nodes_dict'],
-    #                        params['x_types'],
-    #                        params['edge_types'])
+        #print(model)
+    elif name == 'pna_conv':
+        model = model_type(params['inputs_channels'],
+                           params['hidden_channels'],
+                           params['output_channels'],
+                           params['num_layers'],
+                           params['degree'])
+
     else:
         model = model_type(params['inputs_channels'],
                            params['hidden_channels'],
                            params['output_channels'],
                            params['num_layers'],)
     return model
+
+def get_degree(loader):
+    max_degree = -1
+    for data in loader:
+        d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
+        max_degree = max(max_degree, int(d.max()))
+
+    # Compute the in-degree histogram tensor
+    deg = torch.zeros(max_degree + 1, dtype=torch.long)
+    for data in loader:
+        d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
+        deg += torch.bincount(d, minlength=deg.numel())
+    return deg
