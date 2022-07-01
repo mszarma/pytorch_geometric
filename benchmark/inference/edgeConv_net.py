@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
@@ -9,11 +8,15 @@ from torch.nn import Sequential as Seq
 
 
 class EdgeConvNet(torch.nn.Module):
-    def __init__(self, input_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, input_channels, hidden_channels, out_channels,
+                 num_layers):
         super().__init__()
-        nn_in = Seq(Lin(2*input_channels, hidden_channels), ReLU(), Lin(hidden_channels, hidden_channels))
-        nn_hid = Seq(Lin(2*hidden_channels, hidden_channels), ReLU(), Lin(hidden_channels, hidden_channels))
-        nn_out = Seq(Lin(2*hidden_channels, hidden_channels), ReLU(), Lin(hidden_channels, out_channels))
+        nn_in = Seq(Lin(2 * input_channels, hidden_channels), ReLU(),
+                    Lin(hidden_channels, hidden_channels))
+        nn_hid = Seq(Lin(2 * hidden_channels, hidden_channels), ReLU(),
+                     Lin(hidden_channels, hidden_channels))
+        nn_out = Seq(Lin(2 * hidden_channels, hidden_channels), ReLU(),
+                     Lin(hidden_channels, out_channels))
         self.convs = torch.nn.ModuleList()
         self.convs.append(EdgeConv(nn_in))
         for i in range(num_layers - 2):

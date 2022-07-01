@@ -1,11 +1,10 @@
-
-
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 from torch_geometric.utils.hetero import group_hetero_graph
 from torch_geometric.nn import Linear, SAGEConv, Sequential
 from torch_geometric.nn import to_hetero
+
 
 class SAGE_HETERO:
     def __init__(self, hidden_channels, output_channels, num_layers) -> None:
@@ -15,7 +14,8 @@ class SAGE_HETERO:
         self.num_layers = num_layers
 
     def create_hetero(self, device, metadata):
-        model = SAGE_FOR_HETERO(self.hidden_channels, self.output_channels, self.num_layers)
+        model = SAGE_FOR_HETERO(self.hidden_channels, self.output_channels,
+                                self.num_layers)
         self.model = to_hetero(model, metadata, aggr='sum')
 
     def inference(self, loader, device, data=None):
@@ -23,7 +23,9 @@ class SAGE_HETERO:
         for batch in tqdm(loader):
             batch = batch.to(device)
             batch_size = batch['paper'].batch_size
-            out = self.model(batch.x_dict, batch.edge_index_dict)['paper'][:batch_size]
+            out = self.model(batch.x_dict,
+                             batch.edge_index_dict)['paper'][:batch_size]
+
 
 class SAGE_FOR_HETERO(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels, num_layers):

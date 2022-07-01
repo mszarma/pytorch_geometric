@@ -1,12 +1,11 @@
-
-
 import torch
 import torch.nn.functional as F
 from torch.nn import Parameter, ModuleDict, ModuleList, Linear, ParameterDict
 from tqdm import tqdm
 import copy
 from torch_geometric.utils.hetero import group_hetero_graph
-from torch_geometric.nn import RGCNConv # current implementation don't support newest API?
+from torch_geometric.nn import RGCNConv  # current implementation don't support newest API?
+
 
 class RGCNConv(torch.nn.Module):
     def __init__(self, in_channels, out_channels, node_types, edge_types):
@@ -47,6 +46,7 @@ class RGCNConv(torch.nn.Module):
             out_dict[key[2]].add_(out)
 
         return out_dict
+
 
 class RGCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers,

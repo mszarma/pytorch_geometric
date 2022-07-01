@@ -1,20 +1,27 @@
-
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 from torch_geometric.nn import PNAConv
 from torch_geometric.nn import to_hetero
 
+
 class PNANet(torch.nn.Module):
-    def __init__(self, input_channels, hidden_channels, out_channels, num_layers, degree):
+    def __init__(self, input_channels, hidden_channels, out_channels,
+                 num_layers, degree):
         super().__init__()
         self.aggregators = ['mean', 'min', 'max', 'std']
         self.scalers = ['identity', 'amplification', 'attenuation']
         self.convs = torch.nn.ModuleList()
-        self.convs.append(PNAConv(input_channels, hidden_channels, self.aggregators, self.scalers, degree))
+        self.convs.append(
+            PNAConv(input_channels, hidden_channels, self.aggregators,
+                    self.scalers, degree))
         for i in range(num_layers - 2):
-            self.convs.append(PNAConv(hidden_channels, hidden_channels, self.aggregators, self.scalers, degree))
-        self.convs.append(PNAConv(hidden_channels, out_channels, self.aggregators, self.scalers, degree))
+            self.convs.append(
+                PNAConv(hidden_channels, hidden_channels, self.aggregators,
+                        self.scalers, degree))
+        self.convs.append(
+            PNAConv(hidden_channels, out_channels, self.aggregators,
+                    self.scalers, degree))
 
     def forward(self, x, edge_index):
         for i, conv in enumerate(self.convs):

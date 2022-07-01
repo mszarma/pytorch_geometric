@@ -8,11 +8,13 @@ from tqdm import tqdm
 
 
 class GATBlock(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, heads, last_layer=False, **conv_kwargs):
+    def __init__(self, in_channels, out_channels, heads, last_layer=False,
+                 **conv_kwargs):
         super().__init__()
 
         self.conv = GATConv(in_channels, out_channels, heads, **conv_kwargs)
-        self.skip = Linear(in_channels, out_channels if last_layer else out_channels * heads)
+        self.skip = Linear(
+            in_channels, out_channels if last_layer else out_channels * heads)
         self.last_layer = last_layer
 
     def forward(self, x, edge_index):
@@ -23,14 +25,18 @@ class GATBlock(torch.nn.Module):
 
 
 class GATNet(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, heads, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, heads,
+                 num_layers):
         super().__init__()
 
         self.layers = torch.nn.ModuleList()
         self.layers.append(GATBlock(in_channels, hidden_channels, heads))
         for _ in range(num_layers - 2):
-            self.layers.append(GATBlock(hidden_channels * heads, hidden_channels, heads))
-        self.layers.append(GATBlock(hidden_channels * heads, out_channels, heads, last_layer=True, concat=False))
+            self.layers.append(
+                GATBlock(hidden_channels * heads, hidden_channels, heads))
+        self.layers.append(
+            GATBlock(hidden_channels * heads, out_channels, heads,
+                     last_layer=True, concat=False))
 
     @torch.no_grad()
     def inference(self, subgraph_loader, device, x_all):
