@@ -16,20 +16,14 @@ class SAGE_HETERO:
 
     def create_hetero(self, device, metadata):
         model = SAGE_FOR_HETERO(self.hidden_channels, self.output_channels, self.num_layers)
-        # print(model)
         self.model = to_hetero(model, metadata, aggr='sum')
-        # print(self.model)
 
-    def inference(self, loader, device):
+    def inference(self, loader, device, data=None):
         self.model.eval()
         for batch in tqdm(loader):
             batch = batch.to(device)
             batch_size = batch['paper'].batch_size
-            print(batch)
-            print(self.model)
-            out = self.model(batch.x_dict, batch.edge_index_dict)
-            #out['paper'][:batch_size]
-            print(out)
+            out = self.model(batch.x_dict, batch.edge_index_dict)['paper'][:batch_size]
 
 class SAGE_FOR_HETERO(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels, num_layers):

@@ -13,8 +13,8 @@ from torch_sparse import SparseTensor
 
 supported_sets = {
     'ogbn-mag': ['rgcn', 'rgat'],
-    'reddit': ['gcn', 'edge_conv', 'pna_conv'],  # TODO ...
-    'ogbn-products': ['gat', 'edge_conv', 'pna_conv'],  # TODO ...
+    'reddit': ['gcn', 'edge_conv', 'pna_conv'],
+    'ogbn-products': ['gat', 'edge_conv', 'pna_conv'],
 }
 
 
@@ -57,7 +57,7 @@ def run(args: argparse.ArgumentParser) -> None:
                         'inputs_channels': inputs_channels,
                         'hidden_channels': hidden_channels,
                         'output_channels': dataset.num_classes,
-                        'num_relations': args.num_relations,
+                        'num_heads': args.num_heads,
                         'num_layers': layers,
                     }
                     if model_name == 'pna_conv':
@@ -82,7 +82,6 @@ def run(args: argparse.ArgumentParser) -> None:
                             i = 0
                             prebatched_samples = []
                             for batch in subgraph_loader:
-                             #       print(batch)
                                 if i == args.prebatched_samples:
                                     break
                                 prebatched_samples.append(batch)
@@ -92,7 +91,7 @@ def run(args: argparse.ArgumentParser) -> None:
                         start = default_timer()
                         model.inference(subgraph_loader,
                                         args.device,
-                                        data.x
+                                        data.x_dict if dataset_name == 'ogbn-mag' else data.x
                                         )
                         stop = default_timer()
                         print(
@@ -103,23 +102,21 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser('GNN inference benchmark')
 
     argparser.add_argument('--device', default='cpu', type=str)
-    argparser.add_argument('--pure-gnn-mode', default='False', choices=('True', 'False'), type=str,
+    argparser.add_argument('--pure-gnn-mode', action='store_true',
                            help="turn on pure gnn efficiency bench - firstly prepare batches")
-    argparser.add_argument('--prebatched_samples', default=5, type=int,
+    argparser.add_argument('--prebatched_samples', default=7, type=int,
                            help="number of preloaded batches in pure_gnn mode"),
     argparser.add_argument('--datasets', nargs="+",
-                           # default=['ogbn-mag', 'ogbn-products', 'reddit'], type=str)
-                           default=['reddit'], type=str)
+                           default=['ogbn-mag', 'ogbn-products', 'reddit'], type=str)
     argparser.add_argument('--models', nargs="+",
-                           # default=['rgcn', 'rgat', 'edge_conv', 'pna_conv'], type=str)
-                           default=['pna_conv'], type=str)
+                           default=['rgcn', 'rgat', 'edge_conv', 'pna_conv'], type=str)
     argparser.add_argument('--root', default='../../data', type=str)
     argparser.add_argument('--eval-batch-sizes',
                            default=[512, 1024, 2048, 4096, 8192], type=int)
     argparser.add_argument('--num-layers', default=[1, 2, 3], type=int)
     argparser.add_argument('--num-hidden-channels',
                            default=[64, 128, 256], type=int)
-    argparser.add_argument('--num-relations', default=3, type=int)
+    argparser.add_argument('--num-heads', default=3, type=int)
     argparser.add_argument('--num-workers', default=0, type=int)
 
     args = argparser.parse_args()
