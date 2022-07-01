@@ -1,12 +1,14 @@
+from ogb.nodeproppred import PygNodePropPredDataset
+
 import torch
-from inference.utils import get_degree
 import torch_geometric.transforms as T
+from utils import get_dataset, get_model, get_degree
 import os.path as osp
 import argparse
 from timeit import default_timer
 from torch_geometric.nn import to_hetero
 from torch_geometric.loader import NeighborLoader
-from inference.utils import get_dataset, get_model, get_degree
+
 import copy
 from torch_sparse import SparseTensor
 
@@ -25,7 +27,8 @@ def run(args: argparse.ArgumentParser) -> None:
         print("PURE GNN MODE ACTIVATED")
     for dataset_name in args.datasets:
         print("Dataset: ", dataset_name)
-        dataset = get_dataset(dataset_name, args.root)
+        dataset = get_dataset(dataset_name, args.root,
+                              PygNodePropPredDataset if dataset_name == 'ogbn-products' else None)
 
         mask = ('paper', None) if dataset_name == 'ogbn-mag' else None
 
@@ -111,10 +114,10 @@ if __name__ == '__main__':
     argparser.add_argument('--models', nargs="+",
                            default=['rgcn', 'rgat', 'edge_conv', 'pna_conv'], type=str)
     argparser.add_argument('--root', default='../../data', type=str)
-    argparser.add_argument('--eval-batch-sizes',
+    argparser.add_argument('--eval-batch-sizes', nargs='+',
                            default=[512, 1024, 2048, 4096, 8192], type=int)
-    argparser.add_argument('--num-layers', default=[1, 2, 3], type=int)
-    argparser.add_argument('--num-hidden-channels',
+    argparser.add_argument('--num-layers', nargs='+', default=[1, 2, 3], type=int)
+    argparser.add_argument('--num-hidden-channels', nargs='+',
                            default=[64, 128, 256], type=int)
     argparser.add_argument('--num-heads', default=3, type=int)
     argparser.add_argument('--num-workers', default=0, type=int)

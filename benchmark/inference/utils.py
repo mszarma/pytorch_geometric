@@ -1,19 +1,19 @@
 import os.path as osp
 
-
 import torch
-from ogb.nodeproppred import PygNodePropPredDataset
 from torch_geometric.datasets import OGB_MAG, Reddit
 import torch_geometric.transforms as T
-from inference.rgcn import RGCN
-from inference.rgat import GAT_HETERO
-from inference.graphsage import SAGE_HETERO
-from inference.pna_net import PNANet
+from gat_net import GATNet
+from rgcn import RGCN
+from rgat import GAT_HETERO
+from graphsage import SAGE_HETERO
+from pna_net import PNANet
+from edgeConv_net import EdgeConvNet
 from torch_geometric.utils import degree
-from inference.edgeConv_net import EdgeConvNet
 
 
 models_dict = {
+    'gat': GATNet,
     'rgcn': SAGE_HETERO,
     'rgat': GAT_HETERO,
     'pna_conv': PNANet,
@@ -21,7 +21,8 @@ models_dict = {
 }
 
 
-def get_dataset(name, root):
+# TODO: remove ogb_node_dataset; it's a hack to fix hang on ogb import
+def get_dataset(name, root, ogb_node_dataset=None):
     path = osp.dirname(osp.realpath(__file__))
 
     if name == 'ogbn-mag':
@@ -30,8 +31,8 @@ def get_dataset(name, root):
                           preprocess='metapath2vec',
                           transform=transform)
     elif name == 'ogbn-products':
-        dataset = PygNodePropPredDataset("ogbn-products",
-                                         root=osp.join(path, root, "products"))
+        dataset = ogb_node_dataset("ogbn-products",
+                                   root=osp.join(path, root, "products"))
     elif name == 'reddit':
         dataset = Reddit(root=osp.join(path, root, "reddit"))
 
@@ -55,6 +56,13 @@ def get_model(name, params, device, metadata=None):
                     params['output_channels'],
                     params['num_layers'],)
         model.create_hetero(device, metadata)
+
+    elif name == 'gat':
+        model = model_type(params['inputs_channels'],
+                           params['hidden_channels'],
+                           params['output_channels'],
+                           params['num_heads'],
+                           params['num_layers'])
 
     elif name == 'pna_conv':
         model = model_type(params['inputs_channels'],
