@@ -1,5 +1,6 @@
 import copy
 import os.path as osp
+from timeit import default_timer
 
 import torch
 import torch.nn.functional as F
@@ -17,18 +18,23 @@ dataset = Reddit(path)
 # Already send node features/labels to GPU for faster access during sampling:
 data = dataset[0].to(device, 'x', 'y')
 
-kwargs = {'batch_size': 1024, 'num_workers': 6, 'persistent_workers': True}
+kwargs = {'batch_size': 1024, 'num_workers': 2, 'persistent_workers': True}
 train_loader = NeighborLoader(data, input_nodes=data.train_mask,
                               num_neighbors=[25, 10], shuffle=True, **kwargs)
 
-subgraph_loader = NeighborLoader(copy.copy(data), input_nodes=None,
-                                 num_neighbors=[-1], shuffle=False, **kwargs)
+subgraph_loader_layer = NeighborLoader(copy.copy(data), input_nodes=None,
+                                       num_neighbors=[-1], shuffle=False,
+                                       **kwargs)
+
+subgraph_loader_batch = NeighborLoader(copy.copy(data), input_nodes=None,
+                                       num_neighbors=[-1], shuffle=False,
+                                       **kwargs)
 
 # No need to maintain these features during evaluation:
-del subgraph_loader.data.x, subgraph_loader.data.y
+del subgraph_loader_layer.data.x, subgraph_loader_layer.data.y
 # Add global node index information.
-subgraph_loader.data.num_nodes = data.num_nodes
-subgraph_loader.data.n_id = torch.arange(data.num_nodes)
+subgraph_loader_layer.data.num_nodes = data.num_nodes
+subgraph_loader_layer.data.n_id = torch.arange(data.num_nodes)
 
 
 class SAGE(torch.nn.Module):
@@ -97,9 +103,9 @@ def train(epoch):
 
 
 @torch.no_grad()
-def test():
+def test_layer_wise():
     model.eval()
-    y_hat = model.inference(data.x, subgraph_loader).argmax(dim=-1)
+    y_hat = model.inference(data.x, subgraph_loader_layer).argmax(dim=-1)
     y = data.y.to(y_hat.device)
 
     accs = []
@@ -108,9 +114,33 @@ def test():
     return accs
 
 
-for epoch in range(1, 11):
-    loss, acc = train(epoch)
-    print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {acc:.4f}')
-    train_acc, val_acc, test_acc = test()
+@torch.no_grad()
+def test_batch_wise():
+
+    model.eval()
+
+    total_examples = total_correct = 0
+    for batch in tqdm(subgraph_loader_batch):
+        batch = batch.to(device)
+        batch_size = batch.batch_size
+        out = model(batch.x, batch.edge_index)[:batch_size]
+        pred = out.argmax(dim=-1)
+
+        total_examples += batch_size
+        total_correct += int((pred == batch.y[:batch_size]).sum())
+
+    return total_correct / total_examples
+
+
+for epoch in range(1, 2):
+    start = default_timer()
+    train_acc, val_acc, test_acc = test_layer_wise()
+    stop = default_timer()
     print(f'Epoch: {epoch:02d}, Train: {train_acc:.4f}, Val: {val_acc:.4f}, '
           f'Test: {test_acc:.4f}')
+    print(f"Inference layer-wise time: {stop - start}")
+    start = default_timer()
+    total_acc = test_batch_wise()
+    stop = default_timer()
+    print(f'Epoch: {epoch:02d}, Total acc: {total_acc:.4f}')
+    print(f"Inference batch-wise time: {stop - start}")
