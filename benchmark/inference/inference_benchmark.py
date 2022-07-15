@@ -41,18 +41,30 @@ def run(args: argparse.ArgumentParser) -> None:
             print(f'Evaluation bench for {model_name}:')
 
             for batch_size in args.eval_batch_sizes:
-                subgraph_loader = NeighborLoader(
-                    copy.copy(data),
-                    num_neighbors=[-1] *
-                    args.num_layers if dataset_name == 'ogbn-mag' else [-1],
-                    input_nodes=mask,
-                    batch_size=batch_size,
-                    shuffle=False,
-                    num_workers=args.num_workers,
-                )
-                subgraph_loader.data.n_id = torch.arange(data.num_nodes)
+                if dataset_name != 'ogbn-mag':
+                    subgraph_loader = NeighborLoader(
+                        copy.copy(data),
+                        num_neighbors=[-1],
+                        input_nodes=mask,
+                        batch_size=batch_size,
+                        shuffle=False,
+                        num_workers=args.num_workers,
+                    )
+                    subgraph_loader.data.n_id = torch.arange(data.num_nodes)
 
                 for layers in args.num_layers:
+                    if dataset_name == 'ogbn-mag':
+                        subgraph_loader = NeighborLoader(
+                            copy.copy(data),
+                            num_neighbors=[-1] * layers,
+                            input_nodes=mask,
+                            batch_size=batch_size,
+                            shuffle=False,
+                            num_workers=args.num_workers,
+                        )
+                        subgraph_loader.data.n_id = torch.arange(
+                            data.num_nodes)
+
                     for hidden_channels in args.num_hidden_channels:
                         print(
                             '-----------------------------------------------')

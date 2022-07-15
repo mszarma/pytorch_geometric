@@ -1,21 +1,20 @@
 import os.path as osp
 
-from edgeconv import EdgeConvNet
-from graphsage import SAGE_HETERO
+from hetero_gat import HETERO_GAT
+from hetero_sage import HETERO_SAGE
 from ogb.nodeproppred import PygNodePropPredDataset
-from rgat import GAT_HETERO
 
 import torch_geometric.transforms as T
 from torch_geometric.datasets import OGB_MAG, Reddit
-from torch_geometric.nn.models.basic_gnn import GAT, GCN, PNA  # , edgeCNN
+from torch_geometric.nn.models.basic_gnn import GAT, GCN, PNA, EdgeCNN
 
 models_dict = {
-    'edge_conv': EdgeConvNet,  # edgeCNN,
+    'edge_conv': EdgeCNN,
     'gat': GAT,
     'gcn': GCN,
     'pna_conv': PNA,
-    'rgat': GAT_HETERO,
-    'rgcn': SAGE_HETERO,
+    'rgat': HETERO_GAT,
+    'rgcn': HETERO_SAGE,
 }
 
 
