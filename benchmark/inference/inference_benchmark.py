@@ -18,20 +18,20 @@ supported_sets = {
 def run(args: argparse.ArgumentParser) -> None:
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    progress_bar = True
 
     print('BENCHMARK STARTS')
-    if args.pure_gnn_mode:
-        print('PURE GNN MODE ACTIVATED')
     for dataset_name in args.datasets:
         print(f'Dataset: {dataset_name}')
         dataset = get_dataset(dataset_name, args.root)
 
-        mask = ('paper', None) if dataset_name == 'ogbn-mag' else None
+        hetero = True if dataset_name == 'ogbn-mag' else False
+        mask = ('paper', None) if hetero else None
         degree = None
 
         data = dataset[0].to(device)
         inputs_channels = data.x_dict['paper'].size(
-            -1) if dataset_name == 'ogbn-mag' else dataset.num_features
+            -1) if hetero else dataset.num_features
 
         for model_name in args.models:
             if model_name not in supported_sets[dataset_name]:
@@ -41,7 +41,7 @@ def run(args: argparse.ArgumentParser) -> None:
             print(f'Evaluation bench for {model_name}:')
 
             for batch_size in args.eval_batch_sizes:
-                if dataset_name != 'ogbn-mag':
+                if not hetero:
                     subgraph_loader = NeighborLoader(
                         copy.copy(data),
                         num_neighbors=[-1],
@@ -53,10 +53,10 @@ def run(args: argparse.ArgumentParser) -> None:
                     subgraph_loader.data.n_id = torch.arange(data.num_nodes)
 
                 for layers in args.num_layers:
-                    if dataset_name == 'ogbn-mag':
+                    if hetero:
                         subgraph_loader = NeighborLoader(
                             copy.copy(data),
-                            num_neighbors=[-1] * layers,
+                            num_neighbors=[args.hetero_num_neigbors] * layers,
                             input_nodes=mask,
                             batch_size=batch_size,
                             shuffle=False,
@@ -86,18 +86,10 @@ def run(args: argparse.ArgumentParser) -> None:
                             params['degree'] = degree
 
                         model = get_model(
-                            model_name, params, metadata=data.metadata()
-                            if dataset_name == 'ogbn-mag' else None)
+                            model_name, params,
+                            metadata=data.metadata() if hetero else None)
                         model = model.to(device)
                         model.training = False
-                        progress_bar = True
-                        if args.pure_gnn_mode:
-                            prebatched_samples = []
-                            for i, batch in enumerate(subgraph_loader):
-                                if i == args.prebatched_samples:
-                                    break
-                                prebatched_samples.append(batch)
-                            subgraph_loader = prebatched_samples
 
                         start = default_timer()
                         model.inference(subgraph_loader, device, progress_bar)
@@ -107,11 +99,6 @@ def run(args: argparse.ArgumentParser) -> None:
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser('GNN inference benchmark')
-    argparser.add_argument(
-        '--pure-gnn-mode', action='store_true',
-        help='turn on pure gnn efficiency bench - firstly prepare batches')
-    argparser.add_argument('--prebatched_samples', default=3, type=int,
-                           help='number of preloaded batches in pure_gnn mode')
     argparser.add_argument('--datasets', nargs='+',
                            default=['ogbn-mag', 'ogbn-products',
                                     'reddit'], type=str)
@@ -128,6 +115,7 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--num-heads', default=2, type=int,
         help='number of hidden attention heads, applies only for gat and rgat')
+    argparser.add_argument('--hetero-num-neigbors', default=10, type=int)
     argparser.add_argument('--num-workers', default=2, type=int)
 
     args = argparser.parse_args()
