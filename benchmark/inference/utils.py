@@ -1,21 +1,21 @@
 import os.path as osp
 
 from edgeconv import EdgeConvNet
-from gat import GATNet
-from gcn import GCN
+# from gat import GATNet
+# from gcn import GCN
 from graphsage import SAGE_HETERO
 from ogb.nodeproppred import PygNodePropPredDataset
-from pna import PNANet
 from rgat import GAT_HETERO
 
 import torch_geometric.transforms as T
 from torch_geometric.datasets import OGB_MAG, Reddit
+from torch_geometric.nn.models.basic_gnn import GAT, GCN, PNA
 
 models_dict = {
     'edge_conv': EdgeConvNet,
-    'gat': GATNet,
+    'gat': GAT,
     'gcn': GCN,
-    'pna_conv': PNANet,
+    'pna_conv': PNA,
     'rgat': GAT_HETERO,
     'rgcn': SAGE_HETERO,
 }
@@ -45,9 +45,8 @@ def get_model(name, params, metadata=None):
 
     if name in ['rgat', 'rgcn']:
         if name == 'rgat':
-            model = model_type(params['hidden_channels'],
-                               params['output_channels'], params['num_layers'],
-                               params['num_heads'])
+            model = model_type(params['hidden_channels'], params['num_layers'],
+                               params['output_channels'], params['num_heads'])
         elif name == 'rgcn':
             model = model_type(params['hidden_channels'],
                                params['output_channels'], params['num_layers'])
@@ -61,12 +60,11 @@ def get_model(name, params, metadata=None):
 
     elif name == 'pna_conv':
         model = model_type(params['inputs_channels'],
-                           params['hidden_channels'],
-                           params['output_channels'], params['num_layers'],
-                           params['degree'])
+                           params['hidden_channels'], params['num_layers'],
+                           params['output_channels'], params['degree'])
 
     else:
         model = model_type(params['inputs_channels'],
-                           params['hidden_channels'],
-                           params['output_channels'], params['num_layers'])
+                           params['hidden_channels'], params['num_layers'],
+                           params['output_channels'])
     return model
