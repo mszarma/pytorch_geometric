@@ -4,35 +4,39 @@ from timeit import default_timer
 
 import torch
 import torch.nn.functional as F
+from ogb.nodeproppred import PygNodePropPredDataset
 from tqdm import tqdm
 
-from torch_geometric.datasets import Reddit
+# from torch_geometric.datasets import Reddit
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.nn import SAGEConv
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data', 'Reddit')
-dataset = Reddit(path)
+path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data', 'products')
+dataset = PygNodePropPredDataset('ogbn-products', root=osp.join(path))
+# dataset = Reddit(path)
 
 # Already send node features/labels to GPU for faster access during sampling:
 data = dataset[0].to(device, 'x', 'y')
-
+print(dataset)
+print(data)
 kwargs = {'batch_size': 1024, 'num_workers': 2, 'persistent_workers': True}
-train_loader = NeighborLoader(data, input_nodes=data.train_mask,
-                              num_neighbors=[25, 10], shuffle=True, **kwargs)
-
+train_loader = None
+# train_loader = NeighborLoader(data, input_nodes=data.train_mask,
+#                               num_neighbors=[25, 10], shuffle=True, **kwargs)
+# subgraph_loader_layer = None
 subgraph_loader_layer = NeighborLoader(copy.copy(data), input_nodes=None,
                                        num_neighbors=[-1], shuffle=False,
                                        **kwargs)
 
 subgraph_loader_batch = NeighborLoader(copy.copy(data), input_nodes=None,
-                                       num_neighbors=[-1], shuffle=False,
+                                       num_neighbors=[-1, -1], shuffle=False,
                                        **kwargs)
 
 # No need to maintain these features during evaluation:
 del subgraph_loader_layer.data.x, subgraph_loader_layer.data.y
-# Add global node index information.
+# # Add global node index information.
 subgraph_loader_layer.data.num_nodes = data.num_nodes
 subgraph_loader_layer.data.n_id = torch.arange(data.num_nodes)
 
@@ -74,7 +78,7 @@ class SAGE(torch.nn.Module):
         return x_all
 
 
-model = SAGE(dataset.num_features, 256, dataset.num_classes).to(device)
+model = SAGE(dataset.num_features, 128, dataset.num_classes).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 
@@ -107,10 +111,10 @@ def test_layer_wise():
     model.eval()
     y_hat = model.inference(data.x, subgraph_loader_layer).argmax(dim=-1)
     y = data.y.to(y_hat.device)
-
+    y = y  # pep
     accs = []
-    for mask in [data.train_mask, data.val_mask, data.test_mask]:
-        accs.append(int((y_hat[mask] == y[mask]).sum()) / int(mask.sum()))
+    # for mask in [data.train_mask, data.val_mask, data.test_mask]:
+    #     accs.append(int((y_hat[mask] == y[mask]).sum()) / int(mask.sum()))
     return accs
 
 
@@ -134,10 +138,10 @@ def test_batch_wise():
 
 for epoch in range(1, 2):
     start = default_timer()
-    train_acc, val_acc, test_acc = test_layer_wise()
+    acc = test_layer_wise()
     stop = default_timer()
-    print(f'Epoch: {epoch:02d}, Train: {train_acc:.4f}, Val: {val_acc:.4f}, '
-          f'Test: {test_acc:.4f}')
+    # print(f'Epoch: {epoch:02d}, Train: {train_acc:.4f}, Val: {val_acc:.4f}, '
+    #       f'Test: {test_acc:.4f}')
     print(f"Inference layer-wise time: {stop - start}")
     start = default_timer()
     total_acc = test_batch_wise()
