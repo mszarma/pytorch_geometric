@@ -43,7 +43,8 @@ def run(args: argparse.ArgumentParser) -> None:
             for batch_size in args.eval_batch_sizes:
                 subgraph_loader = NeighborLoader(
                     copy.copy(data),
-                    num_neighbors=[-1],
+                    num_neighbors=[-1] *
+                    args.num_layers if dataset_name == 'ogbn-mag' else [-1],
                     input_nodes=mask,
                     batch_size=batch_size,
                     shuffle=False,
@@ -76,7 +77,8 @@ def run(args: argparse.ArgumentParser) -> None:
                             model_name, params, metadata=data.metadata()
                             if dataset_name == 'ogbn-mag' else None)
                         model = model.to(device)
-
+                        model.training = False
+                        progress_bar = True
                         if args.pure_gnn_mode:
                             prebatched_samples = []
                             for i, batch in enumerate(subgraph_loader):
@@ -86,7 +88,7 @@ def run(args: argparse.ArgumentParser) -> None:
                             subgraph_loader = prebatched_samples
 
                         start = default_timer()
-                        model.inference(subgraph_loader, device)
+                        model.inference(subgraph_loader, device, progress_bar)
                         stop = default_timer()
                         print(f'Inference time={stop-start:.3f}\n')
 
@@ -108,12 +110,11 @@ if __name__ == '__main__':
     argparser.add_argument('--root', default='../../data', type=str)
     argparser.add_argument('--eval-batch-sizes', nargs='+',
                            default=[512, 1024, 2048, 4096, 8192], type=int)
-    argparser.add_argument('--num-layers', nargs='+', default=[1, 2, 3],
-                           type=int)
+    argparser.add_argument('--num-layers', nargs='+', default=[2, 3], type=int)
     argparser.add_argument('--num-hidden-channels', nargs='+',
                            default=[64, 128, 256], type=int)
     argparser.add_argument(
-        '--num-heads', default=3, type=int,
+        '--num-heads', default=2, type=int,
         help='number of hidden attention heads, applies only for gat and rgat')
     argparser.add_argument('--num-workers', default=2, type=int)
 

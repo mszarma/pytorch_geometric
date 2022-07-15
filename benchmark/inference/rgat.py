@@ -12,6 +12,7 @@ class GAT_HETERO:
         self.output_channels = output_channels
         self.num_layers = num_layers
         self.num_heads = num_heads
+        self.training = False
 
     def create_hetero(self, metadata):
         model = GAT_FOR_HETERO(self.hidden_channels, self.output_channels,
@@ -22,9 +23,11 @@ class GAT_HETERO:
         self.model = self.model.to(device)
         return self
 
-    def inference(self, loader, device):
+    def inference(self, loader, device, progress_bar=False):
         self.model.eval()
-        for batch in tqdm(loader):
+        if progress_bar:
+            loader = tqdm(loader)
+        for batch in loader:
             batch = batch.to(device)
             batch_size = batch['paper'].batch_size
             self.model(batch.x_dict,
