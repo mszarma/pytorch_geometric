@@ -3,6 +3,7 @@ import os.path as osp
 from hetero_gat import HeteroGAT
 from hetero_sage import HeteroGraphSAGE
 from ogb.nodeproppred import PygNodePropPredDataset
+from torch_sparse import SparseTensor
 
 import torch_geometric.transforms as T
 from torch_geometric.datasets import OGB_MAG, Reddit
@@ -18,7 +19,7 @@ models_dict = {
 }
 
 
-def get_dataset(name, root):
+def get_dataset(name, root, use_sparse_tensor=False):
     path = osp.join(osp.dirname(osp.realpath(__file__)), root, name)
     if name == 'ogbn-mag':
         transform = T.ToUndirected(merge=True)
@@ -29,7 +30,20 @@ def get_dataset(name, root):
     elif name == 'Reddit':
         dataset = Reddit(root=path)
 
-    return dataset[0], dataset.num_classes
+    data = dataset[0]
+    if use_sparse_tensor:
+        if name == 'ogbn-mag':
+            data.adj_t_dict = {}
+            for edge_type, edge_index in data.edge_index_dict.items():
+                src_type, _, dst_type = edge_type
+                data.adj_t_dict[edge_type] = SparseTensor(
+                    row=edge_index[0], col=edge_index[1],
+                    sparse_sizes=(data.x_dict[src_type].size(0),
+                                  data.x_dict[dst_type].size(0))).t()
+        else:
+            data = T.ToSparseTensor()(data)
+
+    return data, dataset.num_classes
 
 
 def get_model(name, params, metadata=None):

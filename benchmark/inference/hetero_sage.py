@@ -1,4 +1,5 @@
 import torch
+from torch_sparse import SparseTensor
 from tqdm import tqdm
 
 from torch_geometric.nn import GraphSAGE, to_hetero
@@ -18,4 +19,11 @@ class HeteroGraphSAGE(torch.nn.Module):
             loader = tqdm(loader, desc="Inference")
         for batch in loader:
             batch = batch.to(device)
-            self.model(batch.x_dict, batch.edge_index_dict)
+            print(batch.adj_t_dict)
+            if hasattr(batch, 'adj_t_dict'):
+                for value in batch.adj_t_dict.values():
+                    assert isinstance(value, SparseTensor)
+                edge_index_dict = batch.adj_t_dict
+            else:
+                edge_index_dict = batch.edge_index_dict
+            self.model(batch.x_dict, edge_index_dict)

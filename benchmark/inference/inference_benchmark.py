@@ -23,7 +23,8 @@ def run(args: argparse.ArgumentParser) -> None:
         assert dataset_name in supported_sets.keys(
         ), f"Dataset {dataset_name} isn't supported."
         print(f'Dataset: {dataset_name}')
-        dataset, num_classes = get_dataset(dataset_name, args.root)
+        dataset, num_classes = get_dataset(dataset_name, args.root,
+                                           args.use_sparse_tensor)
         data = dataset.to(device)
         hetero = True if dataset_name == 'ogbn-mag' else False
         mask = ('paper', None) if dataset_name == 'ogbn-mag' else None
@@ -120,6 +121,9 @@ if __name__ == '__main__':
     argparser.add_argument(
         '--hetero-num-neighbors', default=-1, type=int,
         help='number of neighbors to sample per layer for hetero workloads')
+    argparser.add_argument('--use-sparse-tensor',
+                           help='use sparseTensor as graph storage format',
+                           action='store_true')
     argparser.add_argument('--num-workers', default=2, type=int)
 
     args = argparser.parse_args()
