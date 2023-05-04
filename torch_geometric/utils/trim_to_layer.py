@@ -50,19 +50,12 @@ def trim_to_layer(
     # TODO Support `SparseTensor` for heterogeneous graphs.
     if isinstance(num_sampled_edges_per_hop, dict):
         x = {
-            k: v.narrow(
-                dim=0,
-                start=0,
-                length=v.size(0) - num_sampled_nodes_per_hop[k][-layer],
-            )
+            k: trim_x(v, layer, num_sampled_nodes_per_hop[k])
             for k, v in x.items()
         }
         edge_index = {
-            k: v.narrow(
-                dim=1,
-                start=0,
-                length=v.size(1) - num_sampled_edges_per_hop[k][-layer],
-            )
+            k: trim_adj(v, layer,
+                        num_sampled_nodes_per_hop[k],num_sampled_edges_per_hop[k])
             for k, v in edge_index.items()
         }
         if edge_attr is not None:
@@ -76,30 +69,17 @@ def trim_to_layer(
             }
         return x, edge_index, edge_attr
 
-    x = x.narrow(
-        dim=0,
-        start=0,
-        length=x.size(0) - num_sampled_nodes_per_hop[-layer],
-    )
+    x = trim_x(x, layer, num_sampled_nodes_per_hop)
+
     if edge_attr is not None:
         edge_attr = edge_attr.narrow(
             dim=0,
             start=0,
             length=edge_attr.size(0) - num_sampled_edges_per_hop[-layer],
         )
-    if isinstance(edge_index, Tensor):
-        edge_index = edge_index.narrow(
-            dim=1,
-            start=0,
-            length=edge_index.size(1) - num_sampled_edges_per_hop[-layer],
-        )
-        return x, edge_index, edge_attr
-
-    elif isinstance(edge_index, SparseTensor):
-        num_nodes = edge_index.size(0) - num_sampled_nodes_per_hop[-layer]
-        num_seed_nodes = num_nodes - num_sampled_nodes_per_hop[-(layer + 1)]
-        edge_index = trim_sparse_tensor(edge_index, num_nodes, num_seed_nodes)
-
+    if isinstance(edge_index, Tensor) or isinstance(edge_index, SparseTensor):
+        edge_index = trim_adj(edge_index, layer,
+                              num_sampled_nodes_per_hop,num_sampled_edges_per_hop)
         return x, edge_index, edge_attr
 
     raise NotImplementedError
@@ -139,6 +119,62 @@ class TrimToLayer(torch.nn.Module):
 
 
 # Helper functions ############################################################
+
+def trim_x(x: Union[MaybeHeteroNodeTensor], layer: int,
+    num_sampled_nodes_per_hop: List[int]) -> Union[MaybeHeteroNodeTensor]:
+    # print("call", x, " l ", layer)
+    print("x: ", x.size())
+    if layer <= 0:
+        return x
+    if isinstance(x, Tuple):
+        return  torch.narrow(x[1], 0, 0, x[1].shape[0] - num_sampled_nodes_per_hop[1][-layer])
+    return x.narrow(
+        dim=0,
+        start=0,
+        length=x.size(0) - num_sampled_nodes_per_hop[-layer],
+    )
+
+def trim_adj(edge_index: Union[MaybeHeteroEdgeTensor],layer: int,
+    num_sampled_nodes_per_hop: List[int],num_sampled_edges_per_hop: List[int])-> Union[MaybeHeteroEdgeTensor]:
+        print("layer:", layer)
+        # print("layer1:", type(layer))
+        if layer <= 0:
+            return edge_index
+# 140527111930400
+# heeeeelloooooo
+# 136
+# inplace: 140527111930400
+# 136
+# 136
+# aedge_index size2: torch.Size([2, 18])
+# edge size2: torch.Size([2, 68])
+        # print("edge id:", edge_index)
+        print("edge size:", edge_index.size())
+        print("num_sampled_nodes_per_hopaaa:",num_sampled_nodes_per_hop)
+        print("num_sampled_edges_per_hop:", num_sampled_edges_per_hop)
+        print(id(edge_index))
+        if isinstance(edge_index, torch.Tensor):
+            print("heeeeelloooooo")
+            print(edge_index.size())
+            edge_index.narrow(
+                dim=1,
+                start=0,
+                length=edge_index.size(1) - num_sampled_edges_per_hop[-layer],
+            )
+            print("inplace:", id(edge_index))
+            # print(a.size())
+            aedge_index = torch.narrow(edge_index, 1, 0,
+                                           edge_index.shape[1] - num_sampled_edges_per_hop[-layer])
+            print(aedge_index.storage().size())
+            print("aedge_index size2:", aedge_index.size())
+            print("edge size2:", edge_index.size())
+            return edge_index
+        # elif isinstance(edge_index, SparseTensor):
+        #     num_nodes = edge_index.size(0) - num_sampled_nodes_per_hop[-layer]
+        #     num_seed_nodes = num_nodes - num_sampled_nodes_per_hop[-(layer + 1)]
+        #     return trim_sparse_tensor(edge_index, num_nodes, num_seed_nodes)
+
+
 
 
 def trim_sparse_tensor(src: SparseTensor, num_nodes: int,

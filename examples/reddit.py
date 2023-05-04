@@ -17,9 +17,9 @@ dataset = Reddit(path)
 # Already send node features/labels to GPU for faster access during sampling:
 data = dataset[0].to(device, 'x', 'y')
 
-kwargs = {'batch_size': 1024, 'num_workers': 6, 'persistent_workers': True}
+kwargs = {'batch_size': 1024, 'num_workers': 0, 'persistent_workers': False}
 train_loader = NeighborLoader(data, input_nodes=data.train_mask,
-                              num_neighbors=[25, 10], shuffle=True, **kwargs)
+                              num_neighbors=[15, 10], shuffle=True, **kwargs)
 
 subgraph_loader = NeighborLoader(copy.copy(data), input_nodes=None,
                                  num_neighbors=[-1], shuffle=False, **kwargs)

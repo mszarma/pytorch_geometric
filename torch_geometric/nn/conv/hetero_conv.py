@@ -133,7 +133,7 @@ class HeteroConv(torch.nn.Module):
                 elif src in value_dict or dst in value_dict:
                     args.append(
                         (value_dict.get(src, None), value_dict.get(dst, None)))
-
+            # print(f' Kwargs: HETEROCONV kwargs_dict{kwargs_dict}' )
             kwargs = {}
             for arg, value_dict in kwargs_dict.items():
                 arg = arg[:-5]  # `{*}_dict`
@@ -144,9 +144,10 @@ class HeteroConv(torch.nn.Module):
                 elif src in value_dict or dst in value_dict:
                     kwargs[arg] = (value_dict.get(src, None),
                                    value_dict.get(dst, None))
-
+            # print(f' Kwargs: HETEROCONV {kwargs}' )
             conv = self.convs[str_edge_type]
-
+            # print(x_dict)
+            print("edge_index org:", edge_index.size())
             if src == dst:
                 out = conv(x_dict[src], edge_index, *args, **kwargs)
             else:
@@ -154,10 +155,10 @@ class HeteroConv(torch.nn.Module):
                            **kwargs)
 
             out_dict[dst].append(out)
-
+            # print(out_dict)
         for key, value in out_dict.items():
             out_dict[key] = group(value, self.aggr)
-
+        # print(out_dict)
         return out_dict
 
     def __repr__(self) -> str:
