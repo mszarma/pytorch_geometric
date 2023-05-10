@@ -1,14 +1,16 @@
 from typing import List, Optional, Tuple, Union
-from torch import Tensor
-import torch.nn.functional as F
-from tqdm import tqdm
+
 import torch
+import torch.nn.functional as F
+from torch import Tensor
+from tqdm import tqdm
+
 import torch_geometric.transforms as T
 from torch_geometric.datasets import OGB_MAG
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.nn import HeteroConv, Linear, SAGEConv
-from torch_geometric.utils import trim_x, trim_adj, trim_to_layer
 from torch_geometric.typing import Adj, OptPairTensor, Size
+from torch_geometric.utils import trim_adj, trim_to_layer, trim_x
 
 use_sparse_tensor = False
 trim = True
@@ -29,25 +31,19 @@ device = 'cpu'
 
 class HierarchicalSAGEConv(SAGEConv):
     def forward(self, x: Union[Tensor, OptPairTensor], edge_index: Adj,
-                size: Size = None, num_sampled_nodes_per_hop=None, num_sampled_edges_per_hop=None, layer=None, edge_index_key=None, edge_indexes=None) -> Tensor:
-#    #     print(f' Kwargs SAGECONV: {kwargs}' )
+                size: Size = None, num_sampled_nodes_per_hop=None,
+                num_sampled_edges_per_hop=None, layer=None,
+                edge_index_key=None, edge_indexes=None) -> Tensor:
+
         if num_sampled_nodes_per_hop and num_sampled_edges_per_hop:
-#             # print(layer)
-#             # print(num_sampled_nodes_per_hop)
-#             print("fw before ", id(edge_index))
-            # print("aaa")
-            # print(id(edge_indexes[edge_index_key]))
-            # print("aaa")
-            edge_indexes[edge_index_key] = trim_adj(edge_index,layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop, num_sampled_edges_per_hop)
-            layer += 1
+            edge_indexes[edge_index_key] = trim_adj(
+                edge_index, layer,
+                num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop)
+                == 2 else num_sampled_nodes_per_hop, num_sampled_edges_per_hop)
+            layer += 1 # linear layer trim opt
             edge_index = edge_indexes[edge_index_key]
-# print("fw after:", id(edge_index))
-#             # trim_adj(edge_index,layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop, num_sampled_edges_per_hop)
-#             print("edgeeee index adter trim:", edge_index.size())
-            # x = trim_x(x, layer, num_sampled_nodes_per_hop)
+
             if edge_index.numel() == 0:
-                # x = trim_x(x, layer, num_sampled_nodes_per_hop)
-#                 # print("HEEEEELLLLOOOO")
                 x = x[1] if isinstance(x, Tuple) else x
                 return trim_x(x, layer, num_sampled_nodes_per_hop[1])
 
@@ -62,10 +58,16 @@ class HierarchicalSAGEConv(SAGEConv):
         out = self.lin_l(out)
 
         x_r = x[1]
-    
+
         if num_sampled_nodes_per_hop and num_sampled_edges_per_hop:
-            out = trim_x(out, layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop)
-            x_r = trim_x(x_r, layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop) if self.root_weight else None
+            out = trim_x(
+                out, layer,
+                num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop)
+                == 2 else num_sampled_nodes_per_hop)
+            x_r = trim_x(
+                x_r, layer, num_sampled_nodes_per_hop[1]
+                if len(num_sampled_nodes_per_hop) == 2 else
+                num_sampled_nodes_per_hop) if self.root_weight else None
 
         if self.root_weight and x_r is not None:
             out = out + self.lin_r(x_r)
@@ -74,6 +76,7 @@ class HierarchicalSAGEConv(SAGEConv):
             out = F.normalize(out, p=2., dim=-1)
 
         return out
+
 
 class HierarchicalHeteroGraphSage(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels, num_layers, trim):
@@ -104,30 +107,25 @@ class HierarchicalHeteroGraphSage(torch.nn.Module):
 
     def forward(self, x_dict, edge_index_dict, num_sampled_edges_dict=None,
                 num_sampled_nodes_dict=None):
-     #   print("num_sampled_nodes_dict: ", num_sampled_nodes_dict)
-       
+
         for i, conv in enumerate(self.convs):
             kwargs_dict = {}
-            # if not use_sparse_tensor and trim:
-            #     x_dict, edge_index_dict = trim_to_layer(
-            #         layer=i, node_attrs=x_dict, edge_index=edge_index_dict,
-            #         num_nodes_per_layer=num_sampled_nodes,
-            #         num_edges_per_layer=num_sampled_edges)
-       #     print(f' Kwargs: {kwargs_dict}' )
-            #print(edge_index_dict)
+
             if self.trim:
-                kwargs_dict.update({"num_sampled_edges_per_hop_dict":num_sampled_edges_dict})
-                kwargs_dict.update({"num_sampled_nodes_per_hop_dict":num_sampled_nodes_dict})
-                layer = {k : i for k in edge_index_dict.keys()}
-                edge_index_key = {k : k for k in edge_index_dict.keys()}
-                kwargs_dict.update({"layer_dict":layer})
-                kwargs_dict.update({"edge_index_key_dict":edge_index_key})
-                edge_indexes = {k : edge_index_dict for k in edge_index_dict.keys()}
-                kwargs_dict.update({"edge_indexes_dict":edge_indexes})
-                # # print("...")
-                # for k in edge_index_dict.keys():
-                #     print(id(edge_index_dict[k]))
-                # print("...")
+                kwargs_dict.update(
+                    {"num_sampled_edges_per_hop_dict": num_sampled_edges_dict})
+                kwargs_dict.update(
+                    {"num_sampled_nodes_per_hop_dict": num_sampled_nodes_dict})
+                layer = {k: i for k in edge_index_dict.keys()}
+                edge_index_key = {k: k for k in edge_index_dict.keys()}
+                kwargs_dict.update({"layer_dict": layer})
+                kwargs_dict.update({"edge_index_key_dict": edge_index_key})
+                edge_indexes = {
+                    k: edge_index_dict
+                    for k in edge_index_dict.keys()
+                }
+                kwargs_dict.update({"edge_indexes_dict": edge_indexes})
+
                 # x_dict, edge_index_dict,_ = trim_to_layer(i,num_sampled_nodes_dict,num_sampled_edges_dict,x_dict,edge_index_dict)
             x_dict = conv(x_dict, edge_index_dict, **kwargs_dict)
             x_dict = {key: x.relu() for key, x in x_dict.items()}
@@ -135,8 +133,9 @@ class HierarchicalHeteroGraphSage(torch.nn.Module):
         return self.lin(x_dict['paper'])
 
 
-model = HierarchicalHeteroGraphSage(hidden_channels=64, out_channels=dataset.num_classes,
-                  num_layers=3, trim=trim)
+model = HierarchicalHeteroGraphSage(hidden_channels=64,
+                                    out_channels=dataset.num_classes,
+                                    num_layers=3, trim=trim)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 kwargs = {'batch_size': 1024, 'num_workers': 0}
@@ -158,8 +157,7 @@ def train():
                            if use_sparse_tensor else batch.edge_index_dict)
         optimizer.zero_grad()
         batch_size = batch['paper'].batch_size
-        #print("nodes: ", batch.num_sampled_nodes_dict)
-        #print("Edges:", batch.num_sampled_edges_dict)
+
         if trim:
             out = model(batch.x_dict, edge_index_dict,
                         num_sampled_nodes_dict=batch.num_sampled_nodes_dict,
