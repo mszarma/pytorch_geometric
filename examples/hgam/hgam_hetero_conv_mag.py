@@ -35,19 +35,21 @@ class HierarchicalSAGEConv(SAGEConv):
 #             # print(layer)
 #             # print(num_sampled_nodes_per_hop)
 #             print("fw before ", id(edge_index))
-            print("aaa")
-            print(id(edge_indexes[edge_index_key]))
-            print("aaa")
+            # print("aaa")
+            # print(id(edge_indexes[edge_index_key]))
+            # print("aaa")
             edge_indexes[edge_index_key] = trim_adj(edge_index,layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop, num_sampled_edges_per_hop)
+            layer += 1
             edge_index = edge_indexes[edge_index_key]
 # print("fw after:", id(edge_index))
 #             # trim_adj(edge_index,layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop, num_sampled_edges_per_hop)
 #             print("edgeeee index adter trim:", edge_index.size())
-            x = trim_x(x, layer, num_sampled_nodes_per_hop)
+            # x = trim_x(x, layer, num_sampled_nodes_per_hop)
             if edge_index.numel() == 0:
+                # x = trim_x(x, layer, num_sampled_nodes_per_hop)
 #                 # print("HEEEEELLLLOOOO")
                 x = x[1] if isinstance(x, Tuple) else x
-                return x
+                return trim_x(x, layer, num_sampled_nodes_per_hop[1])
 
         if isinstance(x, Tensor):
             x: OptPairTensor = (x, x)
@@ -60,10 +62,10 @@ class HierarchicalSAGEConv(SAGEConv):
         out = self.lin_l(out)
 
         x_r = x[1]
-
-        # if num_sampled_nodes_per_hop and num_sampled_edges_per_hop:
-        #     out = trim_x(out, layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop)
-        #     x_r = trim_x(x_r, layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop) if self.root_weight else None
+    
+        if num_sampled_nodes_per_hop and num_sampled_edges_per_hop:
+            out = trim_x(out, layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop)
+            x_r = trim_x(x_r, layer, num_sampled_nodes_per_hop[1] if len(num_sampled_nodes_per_hop) == 2 else num_sampled_nodes_per_hop) if self.root_weight else None
 
         if self.root_weight and x_r is not None:
             out = out + self.lin_r(x_r)
@@ -122,10 +124,10 @@ class HierarchicalHeteroGraphSage(torch.nn.Module):
                 kwargs_dict.update({"edge_index_key_dict":edge_index_key})
                 edge_indexes = {k : edge_index_dict for k in edge_index_dict.keys()}
                 kwargs_dict.update({"edge_indexes_dict":edge_indexes})
-                print("...")
-                for k in edge_index_dict.keys():
-                    print(id(edge_index_dict[k]))
-                print("...")
+                # # print("...")
+                # for k in edge_index_dict.keys():
+                #     print(id(edge_index_dict[k]))
+                # print("...")
                 # x_dict, edge_index_dict,_ = trim_to_layer(i,num_sampled_nodes_dict,num_sampled_edges_dict,x_dict,edge_index_dict)
             x_dict = conv(x_dict, edge_index_dict, **kwargs_dict)
             x_dict = {key: x.relu() for key, x in x_dict.items()}
